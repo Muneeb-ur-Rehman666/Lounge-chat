@@ -43,7 +43,9 @@ export function AuthForm() {
   };
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-
+  const [emailConfirmationRequired, setEmailConfirmationRequired] =
+    useState(false);
+  const [confirmationEmail, setConfirmationEmail] = useState("");
   const signIn = useAuthStore((s) => s.signIn);
   const signUp = useAuthStore((s) => s.signUp);
   const continueAsGuest = useAuthStore((s) => s.continueAsGuest);
@@ -94,16 +96,26 @@ export function AuthForm() {
 
   const onSignUp = signUpForm.handleSubmit(async (values) => {
     setLoading(true);
+
     try {
-      await signUp({
+      const session = await signUp({
         displayName: values.displayName,
         email: values.email,
         password: values.password,
       });
+
+      if (!session) {
+        setConfirmationEmail(values.email);
+        setEmailConfirmationRequired(true);
+
+        toast.success("Check your email to verify your account.");
+        return;
+      }
+
       toast.success("Account created. Welcome aboard.");
       router.push("/chats");
-    } catch {
-      toast.error("Could not create account.");
+    } catch (error) {
+    toast.error("Could not create account. Please check your information and try again.")
     } finally {
       setLoading(false);
     }
@@ -244,6 +256,42 @@ export function AuthForm() {
             <ArrowRight className="size-4" />
           </Button>
         </form>
+      ) : emailConfirmationRequired ? (
+        <div className="flex flex-col gap-4">
+          <div className="rounded-2xl bg-secondary-container/30 p-5 text-center">
+            <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-secondary/15">
+              <Mail className="size-5 text-secondary" />
+            </div>
+
+            <h2 className="font-heading text-lg font-bold text-on-surface">
+              Check your email
+            </h2>
+
+            <p className="mt-2 text-sm leading-relaxed text-on-surface-variant">
+              We sent a verification link to{" "}
+              <span className="font-semibold text-on-surface">
+                {confirmationEmail}
+              </span>
+              .
+            </p>
+
+            <p className="mt-2 text-xs leading-relaxed text-on-surface-variant/80">
+              Verify your email before signing in to your LoungeChat account.
+            </p>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 w-full rounded-xl"
+            onClick={() => {
+              setEmailConfirmationRequired(false);
+              setConfirmationEmail("");
+            }}
+          >
+            Back to Sign Up
+          </Button>
+        </div>
       ) : (
         <form onSubmit={onSignUp} className="flex flex-col gap-2.5" noValidate>
           <div className="flex flex-col gap-1">

@@ -52,9 +52,24 @@ export const profileSchema = z.object({
   interests: z.array(z.string().min(1).max(24)).max(20).optional(),
 });
 
+export const resetPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters."),
+    confirmPassword: z
+      .string()
+      .min(8, "Please confirm your password."),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match.",
+    path: ["confirmPassword"],
+  });
+
 export type SignInValues = z.infer<typeof signInSchema>;
 export type SignUpValues = z.infer<typeof signUpSchema>;
 export type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
 export type ReportValues = z.infer<typeof reportSchema>;
 export type AddFriendValues = z.infer<typeof addFriendSchema>;
 export type ProfileValues = z.infer<typeof profileSchema>;
+export type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;

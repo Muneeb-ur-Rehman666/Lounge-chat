@@ -14,7 +14,7 @@ interface AuthState {
     displayName: string;
     email: string;
     password: string;
-  }) => Promise<void>;
+  }) => Promise<AuthSession | null>;
   signOut: () => void;
   upgradeToPremium: () => void;
   updateProfile: (
@@ -64,10 +64,14 @@ export const useAuthStore = create<AuthState>()(
         set({ session });
       },
 
-      signUp: async (data) => {
-        const session = await authService.signUp(data);
-        set({ session });
-      },
+      signUp: (data) =>
+        authService.signUp(data).then((session) => {
+          if (session) {
+            set({ session });
+          }
+
+          return session;
+        }),
 
       signOut: () => set({ session: null }),
 

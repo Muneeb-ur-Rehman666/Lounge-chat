@@ -14,7 +14,8 @@ import {
   forgotPasswordSchema,
   type ForgotPasswordValues,
 } from "@/lib/validators";
-import { authService } from "@/services/auth";
+
+import { createClient } from "@/lib/supabase/client";
 
 export default function ForgotPasswordClient() {
   const [sent, setSent] = useState(false);
@@ -24,14 +25,29 @@ export default function ForgotPasswordClient() {
     defaultValues: { email: "" },
   });
 
+  const supabase = createClient();
+
   const onSubmit = form.handleSubmit(async (values) => {
     setLoading(true);
+
     try {
-      await authService.requestPasswordReset(values.email);
+      const client = createClient();
+
+      const { error } = await client.auth.resetPasswordForEmail(
+        values.email,
+        {
+          redirectTo: `${window.location.origin}/auth/reset-password`,
+        }
+      );
+
+      if (error) {
+        throw error;
+      }
+
       setSent(true);
-      toast.success("Reset link sent (demo). Check your inbox.");
+      toast.success("If an account exists, a reset link has been sent.");
     } catch {
-      toast.error("Could not send reset link.");
+      toast.error("Could not send reset link. Please try again.");
     } finally {
       setLoading(false);
     }
