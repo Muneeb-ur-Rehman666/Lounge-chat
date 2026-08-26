@@ -29,6 +29,11 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useAuthHydration } from "@/hooks/use-auth-hydration";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+const [emailConfirmationRequired, setEmailConfirmationRequired] =
+  useState(false);
+const [confirmationEmail, setConfirmationEmail] = useState("");
+const [checkingVerification, setCheckingVerification] = useState(false);
+const [resendingVerification, setResendingVerification] = useState(false);
 
 export function AuthForm() {
   const router = useRouter();
@@ -65,6 +70,54 @@ export function AuthForm() {
       router.replace("/chats");
     }
   }, [guestParam, hydrated, session, continueAsGuest, router]);
+
+  useEffect(() => {
+    if (!emailConfirmationRequired || !confirmationEmail) {
+      return;
+    }
+
+    const supabase = createClient();
+
+    const checkEmailVerification = async () => {
+      setCheckingVerification(true);
+
+      try {
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
+
+        if (error) {
+          console.error("Verification check failed:", error);
+          return;
+        }
+
+        if (
+          user?.email_confirmed_at &&
+          user.email?.toLowerCase() === confirmationEmail.toLowerCase()
+        ) {
+          console.log("Email verified:", user.email_confirmed_at);
+
+          setEmailConfirmationRequired(false);
+          setConfirmationEmail("");
+
+          toast.success("Email verified! Welcome to LoungeChat.");
+
+          router.replace("/chats");
+        }
+      } finally {
+        setCheckingVerification(false);
+      }
+    };
+
+    // Check immediately.
+    checkEmailVerification();
+
+    // Then check every 3 seconds.
+    const interval = setInterval(checkEmailVerification, 3000);
+
+    return () => clearInterval(interval);
+  }, [emailConfirmationRequired, confirmationEmail, router]);
 
   const signInForm = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
@@ -284,7 +337,50 @@ export function AuthForm() {
             <p className="mt-2 text-xs leading-relaxed text-on-surface-variant/80">
               Verify your email before signing in to your LoungeChat account.
             </p>
+
+            <p className="mt-2 text-xs leading-relaxed text-on-surface-variant/80">
+              Didn&apos;t receive the email? Check your spam or junk folder.
+            </p>
           </div>
+
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-9 w-full rounded-xl text-xs"
+            disabled={resendingVerification}
+            onClick={async () => {
+              setResendingVerification(true);
+
+              try {
+                const supabase = createClient();
+
+                const { error } = await supabase.auth.resend({
+                  type: "signup",
+                  email: confirmationEmail,
+                  options: {
+                    emailRedirectTo: `${window.location.origin}/auth/callback`,
+                  },
+                });
+
+                if (error) {
+                  console.error("Resend verification error:", error);
+                  toast.error("Could not resend the verification email.");
+                  return;
+                }
+
+                toast.success("A new verification email has been sent.");
+              } catch (error) {
+                console.error("Unexpected resend error:", error);
+                toast.error("Could not resend the verification email.");
+              } finally {
+                setResendingVerification(false);
+              }
+            }}
+          >
+            {resendingVerification
+              ? "Sending verification email…"
+              : "Didn't receive it? Resend verification email"}
+          </Button>
 
           <Button
             type="button"

@@ -1,27 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { CheckCircle2, MessageCircle } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 
 export default function EmailVerifiedPage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    const channel = new BroadcastChannel(
-      "loungechat-email-verification"
-    );
-
-    channel.postMessage({
-      type: "EMAIL_VERIFIED",
-    });
-
-    return () => {
-      channel.close();
-    };
-  }, []);
-
   return (
     <div className="mesh-bg relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6">
       <div className="pointer-events-none absolute inset-0">
@@ -43,17 +26,20 @@ export default function EmailVerifiedPage() {
           You&apos;re all set to start chatting.
         </p>
 
+        <p className="mt-2 text-xs leading-relaxed text-on-surface-variant/70">
+          You can return to the device where you signed up. It will
+          automatically continue to LoungeChat.
+        </p>
+
         <Button
           className="mt-6 h-12 w-full rounded-2xl"
-          onClick={() => router.push("/auth")}
+          onClick={() => {
+            window.location.href = "/chats";
+          }}
         >
           <MessageCircle className="size-4" />
           Continue to LoungeChat
         </Button>
-
-        <p className="mt-4 text-xs text-on-surface-variant/70">
-          You can now sign in with your email and password.
-        </p>
       </div>
     </div>
   );
