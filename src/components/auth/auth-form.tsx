@@ -28,6 +28,7 @@ import {
 import { useAuthStore } from "@/stores/auth-store";
 import { useAuthHydration } from "@/hooks/use-auth-hydration";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 export function AuthForm() {
   const router = useRouter();
@@ -115,7 +116,7 @@ export function AuthForm() {
       toast.success("Account created. Welcome aboard.");
       router.push("/chats");
     } catch (error) {
-    toast.error("Could not create account. Please check your information and try again.")
+      toast.error("Could not create account. Please check your information and try again.")
     } finally {
       setLoading(false);
     }

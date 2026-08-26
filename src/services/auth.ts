@@ -146,6 +146,7 @@ export class SupabaseAuthService implements AuthService {
         data: {
           display_name: input.displayName,
         },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
 
