@@ -116,6 +116,11 @@ export function AuthForm() {
       toast.success("Account created. Welcome aboard.");
       router.push("/chats");
     } catch (error) {
+      console.error("SIGN UP ERROR:", error);
+      if (error instanceof Error) {
+        console.error("Message:", error.message);
+        console.error("Stack:", error.stack);
+      }
       toast.error("Could not create account. Please check your information and try again.")
     } finally {
       setLoading(false);
