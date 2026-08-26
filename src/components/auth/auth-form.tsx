@@ -29,11 +29,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useAuthHydration } from "@/hooks/use-auth-hydration";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-const [emailConfirmationRequired, setEmailConfirmationRequired] =
-  useState(false);
-const [confirmationEmail, setConfirmationEmail] = useState("");
-const [checkingVerification, setCheckingVerification] = useState(false);
-const [resendingVerification, setResendingVerification] = useState(false);
+
 
 export function AuthForm() {
   const router = useRouter();
@@ -57,6 +53,8 @@ export function AuthForm() {
   const continueAsGuest = useAuthStore((s) => s.continueAsGuest);
   const session = useAuthStore((s) => s.session);
   const hydrated = useAuthHydration();
+  const [checkingVerification, setCheckingVerification] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState(false);
 
   useEffect(() => {
     if (hydrated && session) {
