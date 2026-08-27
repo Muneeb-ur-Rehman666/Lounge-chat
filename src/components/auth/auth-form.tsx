@@ -39,6 +39,8 @@ import { useAuthHydration } from "@/hooks/use-auth-hydration";
 
 import { cn } from "@/lib/utils";
 
+const OTP_RESEND_COOLDOWN = 60;
+
 export function AuthForm() {
   const router = useRouter();
   const params = useSearchParams();
@@ -94,6 +96,10 @@ export function AuthForm() {
 
   const [verifyingOtp, setVerifyingOtp] =
     useState(false);
+
+  // OTP resend cooldown
+  const [resendCooldown, setResendCooldown] =
+    useState(0);
 
   // Auth store
   const signIn = useAuthStore(
@@ -158,6 +164,34 @@ export function AuthForm() {
 
   const fieldClass =
     "h-10 rounded-xl border-outline-variant/40 bg-surface-container-low focus-visible:border-primary/50";
+
+  /*
+   * OTP RESEND COOLDOWN TIMER
+   *
+   * Counts down once the OTP screen is displayed.
+   * The resend button remains disabled while
+   * resendCooldown is greater than 0.
+   */
+  useEffect(() => {
+    if (resendCooldown <= 0) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setResendCooldown((current) => {
+        if (current <= 1) {
+          window.clearInterval(timer);
+          return 0;
+        }
+
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [resendCooldown]);
 
   /*
    * Redirect authenticated users.
@@ -290,12 +324,19 @@ export function AuthForm() {
            *
            * Supabase returned no session because
            * email confirmation is required.
+           *
+           * Start the 60-second resend cooldown
+           * immediately when the OTP screen appears.
            */
           setOtpEmail(values.email);
 
           setOtp("");
 
           setOtpRequired(true);
+
+          setResendCooldown(
+            OTP_RESEND_COOLDOWN
+          );
 
           toast.success(
             "Verification code sent to your email."
@@ -331,16 +372,6 @@ export function AuthForm() {
 
   /*
    * VERIFY EMAIL OTP
-   *
-   * Goes through:
-   *
-   * auth-form
-   *     ↓
-   * auth-store
-   *     ↓
-   * authService
-   *     ↓
-   * Supabase
    */
   const handleVerifyOtp =
     async () => {
@@ -375,6 +406,8 @@ export function AuthForm() {
 
         setOtpEmail("");
 
+        setResendCooldown(0);
+
         router.replace("/chats");
       } catch (error) {
         console.error(
@@ -404,7 +437,11 @@ export function AuthForm() {
    */
   const handleResendOtp =
     async () => {
-      if (!otpEmail) {
+      if (
+        !otpEmail ||
+        resendCooldown > 0 ||
+        resendingOtp
+      ) {
         return;
       }
 
@@ -416,6 +453,12 @@ export function AuthForm() {
         );
 
         setOtp("");
+
+        // Start a fresh 60-second cooldown
+        // after every successful resend.
+        setResendCooldown(
+          OTP_RESEND_COOLDOWN
+        );
 
         toast.success(
           "A new verification code has been sent."
@@ -481,7 +524,6 @@ export function AuthForm() {
             }
             className={cn(
               "flex-1 rounded-lg py-2 text-center text-sm font-semibold transition-all",
-
               tab === "signin"
                 ? "nav-active-pill text-on-surface"
                 : "text-on-surface-variant hover:text-on-surface"
@@ -497,7 +539,6 @@ export function AuthForm() {
             }
             className={cn(
               "flex-1 rounded-lg py-2 text-center text-sm font-semibold transition-all",
-
               tab === "signup"
                 ? "nav-active-pill text-on-surface"
                 : "text-on-surface-variant hover:text-on-surface"
@@ -510,9 +551,6 @@ export function AuthForm() {
 
       {tab === "signin" &&
         !otpRequired ? (
-        /*
-         * SIGN IN FORM
-         */
         <form
           onSubmit={onSignIn}
           className="flex flex-col gap-3.5"
@@ -651,9 +689,6 @@ export function AuthForm() {
           </Button>
         </form>
       ) : otpRequired ? (
-        /*
-         * OTP VERIFICATION SCREEN
-         */
         <div className="flex flex-col gap-4">
           <div className="rounded-2xl bg-secondary-container/30 p-5 text-center">
             <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-secondary/15">
@@ -734,13 +769,18 @@ export function AuthForm() {
           <Button
             type="button"
             variant="ghost"
-            disabled={resendingOtp}
+            disabled={
+              resendingOtp ||
+              resendCooldown > 0
+            }
             onClick={handleResendOtp}
             className="h-9 w-full rounded-xl text-xs"
           >
             {resendingOtp
               ? "Sending new code…"
-              : "Didn't receive it? Resend OTP"}
+              : resendCooldown > 0
+                ? `Resend OTP in ${resendCooldown}s`
+                : "Didn't receive it? Resend OTP"}
           </Button>
 
           <Button
@@ -751,15 +791,13 @@ export function AuthForm() {
               setOtpRequired(false);
               setOtp("");
               setOtpEmail("");
+              setResendCooldown(0);
             }}
           >
             Back to Sign Up
           </Button>
         </div>
       ) : (
-        /*
-         * SIGN UP FORM
-         */
         <form
           onSubmit={onSignUp}
           className="flex flex-col gap-2.5"
@@ -838,17 +876,16 @@ export function AuthForm() {
 
               {signUpForm.formState
                 .errors.password && (
-                  <p
-                    className="text-xs text-destructive"
-                    role="alert"
-                  >
-                    {
-                      signUpForm.formState
-                        .errors.password
-                        .message
-                    }
-                  </p>
-                )}
+                <p
+                  className="text-xs text-destructive"
+                  role="alert"
+                >
+                  {
+                    signUpForm.formState
+                      .errors.password.message
+                  }
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-1">
@@ -867,18 +904,17 @@ export function AuthForm() {
 
               {signUpForm.formState
                 .errors.confirmPassword && (
-                  <p
-                    className="text-xs text-destructive"
-                    role="alert"
-                  >
-                    {
-                      signUpForm.formState
-                        .errors
-                        .confirmPassword
-                        .message
-                    }
-                  </p>
-                )}
+                <p
+                  className="text-xs text-destructive"
+                  role="alert"
+                >
+                  {
+                    signUpForm.formState
+                      .errors.confirmPassword
+                      .message
+                  }
+                </p>
+              )}
             </div>
           </div>
 
@@ -912,17 +948,17 @@ export function AuthForm() {
 
           {signUpForm.formState
             .errors.acceptTerms && (
-              <p
-                className="text-xs text-destructive"
-                role="alert"
-              >
-                {
-                  signUpForm.formState
-                    .errors.acceptTerms
-                    .message
-                }
-              </p>
-            )}
+            <p
+              className="text-xs text-destructive"
+              role="alert"
+            >
+              {
+                signUpForm.formState
+                  .errors.acceptTerms
+                  .message
+              }
+            </p>
+          )}
 
           <Button
             type="submit"
