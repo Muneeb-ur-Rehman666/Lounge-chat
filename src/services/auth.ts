@@ -7,6 +7,10 @@ import type {
   User,
 } from "@/types";
 
+import {
+  createRecoveryClient,
+} from "@/lib/supabase/recovery-client";
+
 import { createClient } from "@/lib/supabase/client";
 
 export class AuthServiceError
@@ -47,6 +51,8 @@ export interface AuthService {
   }): Promise<AuthSession | null>;
 
   signOut(): Promise<void>;
+
+  signOutRecovery(): Promise<void>;
 
   verifyEmailOtp(
     email: string,
@@ -294,6 +300,24 @@ export class SupabaseAuthService
     );
   }
 
+  async signOutRecovery(): Promise<void> {
+    const supabase =
+      createRecoveryClient();
+  
+    const {
+      error,
+    } =
+      await supabase.auth.signOut({
+        scope: "local",
+      });
+  
+    if (error) {
+      throw toAuthServiceError(
+        error
+      );
+    }
+  }
+  
   async signOut(): Promise<void> {
     const supabase =
       createClient();
@@ -539,7 +563,7 @@ export class SupabaseAuthService
     email: string
   ): Promise<void> {
     const supabase =
-      createClient();
+      createRecoveryClient();
 
     const {
       error,
@@ -549,7 +573,7 @@ export class SupabaseAuthService
           email,
           {
             redirectTo:
-              `${window.location.origin}/auth/callback`,
+              `${window.location.origin}/auth/reset-password`,
           }
         );
 
@@ -564,7 +588,7 @@ export class SupabaseAuthService
     password: string
   ): Promise<void> {
     const supabase =
-      createClient();
+      createRecoveryClient();
 
     /*
      * The recovery link establishes the

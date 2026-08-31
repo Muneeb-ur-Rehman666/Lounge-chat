@@ -22,7 +22,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import { createClient } from "@/lib/supabase/client";
+import {
+    createRecoveryClient,
+} from "@/lib/supabase/recovery-client";
 
 import { authService } from "@/services/auth";
 
@@ -69,73 +71,67 @@ export default function ResetPasswordClient() {
      * Supabase handles the recovery session
      * when the user returns to the application.
      */
+    const supabase =
+        createRecoveryClient();
+
+    let mounted = true;
+
     useEffect(() => {
-        const supabase =
-            createClient();
+        const supabase = createRecoveryClient();
 
         let mounted = true;
 
-        const checkSession =
-            async () => {
-                try {
-                    const {
-                        data: {
-                            session,
-                        },
-                        error,
-                    } =
-                        await supabase.auth.getSession();
+        const checkSession = async () => {
+            try {
+                const {
+                    data: { session },
+                    error,
+                } = await supabase.auth.getSession();
 
-                    if (!mounted) {
-                        return;
-                    }
+                if (!mounted) {
+                    return;
+                }
 
-                    if (error) {
-                        console.error(
-                            "RECOVERY SESSION ERROR:",
-                            error
-                        );
-
-                        setSessionValid(false);
-                        return;
-                    }
-
-                    setSessionValid(
-                        !!session
-                    );
-                } catch (error) {
+                if (error) {
                     console.error(
-                        "RECOVERY SESSION CHECK ERROR:",
+                        "RECOVERY SESSION ERROR:",
                         error
                     );
 
-                    if (mounted) {
-                        setSessionValid(false);
-                    }
-                } finally {
-                    if (mounted) {
-                        setCheckingSession(false);
-                    }
+                    setSessionValid(false);
+                    return;
                 }
-            };
+
+                setSessionValid(!!session);
+            } catch (error) {
+                console.error(
+                    "RECOVERY SESSION CHECK ERROR:",
+                    error
+                );
+
+                if (mounted) {
+                    setSessionValid(false);
+                }
+            } finally {
+                if (mounted) {
+                    setCheckingSession(false);
+                }
+            }
+        };
 
         const {
-            data: {
-                subscription,
-            },
-        } =
-            supabase.auth.onAuthStateChange(
-                (event, session) => {
-                    if (
-                        event ===
-                        "PASSWORD_RECOVERY" &&
-                        session
-                    ) {
-                        setSessionValid(true);
-                        setCheckingSession(false);
-                    }
+            data: { subscription },
+        } = supabase.auth.onAuthStateChange(
+            (event, session) => {
+                if (
+                    event === "PASSWORD_RECOVERY" &&
+                    session
+                ) {
+                    setSessionValid(true);
+                    setCheckingSession(false);
                 }
-            );
+            }
+        );
 
         void checkSession();
 
@@ -172,7 +168,7 @@ export default function ResetPasswordClient() {
                      * the password has successfully changed.
                      */
                     try {
-                        await authService.signOut();
+                        await authService.signOutRecovery();
                     } catch (signOutError) {
                         /*
                          * The password change itself succeeded.
