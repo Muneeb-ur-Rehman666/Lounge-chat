@@ -42,9 +42,23 @@ export function SettingsExperience() {
             <Switch
               id="online"
               checked={user?.status === "online"}
+              disabled={isGuest()}
               onCheckedChange={(checked) => {
-                updateProfile({ status: checked ? "online" : "away" });
-                toast.message(checked ? "Status: Online" : "Status: Away");
+                if (isGuest()) {
+                  return;
+                }
+
+                updateProfile({
+                  status: checked
+                    ? "online"
+                    : "away",
+                });
+
+                toast.message(
+                  checked
+                    ? "Status: Online"
+                    : "Status: Away"
+                );
               }}
             />
           </div>
@@ -97,9 +111,23 @@ export function SettingsExperience() {
         <Button
           variant="destructive"
           className="rounded-2xl"
-          onClick={() => {
-            signOut();
-            router.push("/");
+          onClick={async () => {
+            try {
+              await signOut();
+              toast.success("You have been logged out.");
+              router.replace("/");
+            } catch (error) {
+              console.error(
+                "LOGOUT ERROR:",
+                error
+              );
+
+              toast.error(
+                error instanceof Error
+                  ? error.message
+                  : "Could not log out. Please try again."
+              );
+            }
           }}
         >
           <LogOut className="size-4" />

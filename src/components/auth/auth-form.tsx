@@ -36,7 +36,7 @@ import {
 
 import { useAuthStore } from "@/stores/auth-store";
 import { useAuthHydration } from "@/hooks/use-auth-hydration";
-
+import { AuthServiceError } from "@/services/auth";
 import { cn } from "@/lib/utils";
 
 const OTP_RESEND_COOLDOWN = 60;
@@ -127,6 +127,11 @@ export function AuthForm() {
     (state) => state.session
   );
 
+  const authInitialized =
+    useAuthStore(
+      (state) => state.authInitialized
+    );
+
   const hydrated = useAuthHydration();
 
   // Sign-in form
@@ -202,6 +207,7 @@ export function AuthForm() {
   useEffect(() => {
     if (
       !hydrated ||
+      !authInitialized ||
       !session ||
       otpRequired
     ) {
@@ -211,6 +217,7 @@ export function AuthForm() {
     router.replace("/chats");
   }, [
     hydrated,
+    authInitialized,
     session,
     otpRequired,
     router,
@@ -469,11 +476,40 @@ export function AuthForm() {
           error
         );
 
-        if (error instanceof Error) {
-          console.error(
-            "Message:",
+        if (
+          error instanceof AuthServiceError
+        ) {
+          if (
+            error.status === 429 ||
+            error.code ===
+            "over_email_send_rate_limit" ||
+            error.code ===
+            "over_request_rate_limit"
+          ) {
+            /*
+             * Supabase itself has rate limited
+             * the request.
+             *
+             * Keep the client locked for another
+             * 60 seconds rather than immediately
+             * trying again.
+             */
+            setResendCooldown(
+              OTP_RESEND_COOLDOWN
+            );
+
+            toast.error(
+              "Too many verification requests. Please wait a minute before trying again."
+            );
+
+            return;
+          }
+
+          toast.error(
             error.message
           );
+
+          return;
         }
 
         toast.error(
@@ -486,541 +522,542 @@ export function AuthForm() {
       }
     };
 
-  /*
-   * GUEST
-   */
-  const handleGuest = () => {
-    continueAsGuest();
+      /*
+       * GUEST
+       */
+      const handleGuest = () => {
+        continueAsGuest();
 
-    toast.message(
-      "Browsing as guest — some features are limited."
-    );
+        toast.message(
+          "Browsing as guest — some features are limited."
+        );
 
-    router.push("/chats");
-  };
+        router.push("/chats");
+      };
 
-  return (
-    <div className="mx-auto w-full max-w-md">
-      <div className="mb-4 text-center lg:text-left">
-        <h1 className="font-heading text-xl font-bold tracking-tight sm:text-2xl">
-          {tab === "signin"
-            ? "Welcome back"
-            : "Join the lounge"}
-        </h1>
+      return (
+        <div className="mx-auto w-full max-w-md">
+          <div className="mb-4 text-center lg:text-left">
+            <h1 className="font-heading text-xl font-bold tracking-tight sm:text-2xl">
+              {tab === "signin"
+                ? "Welcome back"
+                : "Join the lounge"}
+            </h1>
 
-        <p className="mt-0.5 text-sm text-on-surface-variant">
-          {tab === "signin"
-            ? "Pick up where the vibes left off."
-            : "Friends, history, and all the good stuff."}
-        </p>
-      </div>
-
-      {!otpRequired && (
-        <div className="mb-4 flex rounded-xl bg-surface-container-low/80 p-1">
-          <button
-            type="button"
-            onClick={() =>
-              setTab("signin")
-            }
-            className={cn(
-              "flex-1 rounded-lg py-2 text-center text-sm font-semibold transition-all",
-              tab === "signin"
-                ? "nav-active-pill text-on-surface"
-                : "text-on-surface-variant hover:text-on-surface"
-            )}
-          >
-            Sign In
-          </button>
-
-          <button
-            type="button"
-            onClick={() =>
-              setTab("signup")
-            }
-            className={cn(
-              "flex-1 rounded-lg py-2 text-center text-sm font-semibold transition-all",
-              tab === "signup"
-                ? "nav-active-pill text-on-surface"
-                : "text-on-surface-variant hover:text-on-surface"
-            )}
-          >
-            Sign Up
-          </button>
-        </div>
-      )}
-
-      {tab === "signin" &&
-        !otpRequired ? (
-        <form
-          onSubmit={onSignIn}
-          className="flex flex-col gap-3.5"
-          noValidate
-        >
-          <div className="flex flex-col gap-1">
-            <Label
-              htmlFor="email"
-              className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant"
-            >
-              Email
-            </Label>
-
-            <div className="relative">
-              <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-outline" />
-
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@email.com"
-                className={cn(
-                  fieldClass,
-                  "pl-10"
-                )}
-                aria-invalid={
-                  !!signInForm.formState
-                    .errors.email
-                }
-                {...signInForm.register(
-                  "email"
-                )}
-              />
-            </div>
-
-            {signInForm.formState
-              .errors.email && (
-                <p
-                  className="text-xs text-destructive"
-                  role="alert"
-                >
-                  {
-                    signInForm.formState
-                      .errors.email.message
-                  }
-                </p>
-              )}
+            <p className="mt-0.5 text-sm text-on-surface-variant">
+              {tab === "signin"
+                ? "Pick up where the vibes left off."
+                : "Friends, history, and all the good stuff."}
+            </p>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between">
-              <Label
-                htmlFor="password"
-                className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant"
-              >
-                Password
-              </Label>
-
-              <Link
-                href="/auth/forgot-password"
-                className="text-xs font-semibold text-magenta hover:text-magenta/80"
-              >
-                Forgot?
-              </Link>
-            </div>
-
-            <div className="relative">
-              <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-outline" />
-
-              <Input
-                id="password"
-                type={
-                  showPassword
-                    ? "text"
-                    : "password"
+          {!otpRequired && (
+            <div className="mb-4 flex rounded-xl bg-surface-container-low/80 p-1">
+              <button
+                type="button"
+                onClick={() =>
+                  setTab("signin")
                 }
-                placeholder="Your password"
                 className={cn(
-                  fieldClass,
-                  "px-10"
+                  "flex-1 rounded-lg py-2 text-center text-sm font-semibold transition-all",
+                  tab === "signin"
+                    ? "nav-active-pill text-on-surface"
+                    : "text-on-surface-variant hover:text-on-surface"
                 )}
-                aria-invalid={
-                  !!signInForm.formState
-                    .errors.password
-                }
-                {...signInForm.register(
-                  "password"
-                )}
-              />
+              >
+                Sign In
+              </button>
 
               <button
                 type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface"
                 onClick={() =>
-                  setShowPassword(
-                    (value) => !value
-                  )
+                  setTab("signup")
                 }
-                aria-label={
-                  showPassword
-                    ? "Hide password"
-                    : "Show password"
-                }
-              >
-                {showPassword ? (
-                  <Eye className="size-4" />
-                ) : (
-                  <EyeOff className="size-4" />
+                className={cn(
+                  "flex-1 rounded-lg py-2 text-center text-sm font-semibold transition-all",
+                  tab === "signup"
+                    ? "nav-active-pill text-on-surface"
+                    : "text-on-surface-variant hover:text-on-surface"
                 )}
+              >
+                Sign Up
               </button>
             </div>
-
-            {signInForm.formState
-              .errors.password && (
-                <p
-                  className="text-xs text-destructive"
-                  role="alert"
-                >
-                  {
-                    signInForm.formState
-                      .errors.password.message
-                  }
-                </p>
-              )}
-          </div>
-
-          <Button
-            type="submit"
-            disabled={loading}
-            className="mt-0.5 h-10 w-full rounded-xl"
-          >
-            {loading
-              ? "Signing in…"
-              : "Sign In"}
-
-            <ArrowRight className="size-4" />
-          </Button>
-        </form>
-      ) : otpRequired ? (
-        <div className="flex flex-col gap-4">
-          <div className="rounded-2xl bg-secondary-container/30 p-5 text-center">
-            <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-secondary/15">
-              <Mail className="size-5 text-secondary" />
-            </div>
-
-            <h2 className="font-heading text-lg font-bold text-on-surface">
-              Verify your email
-            </h2>
-
-            <p className="mt-2 text-sm leading-relaxed text-on-surface-variant">
-              We sent a 6-digit
-              verification code to{" "}
-              <span className="font-semibold text-on-surface">
-                {otpEmail}
-              </span>
-              .
-            </p>
-
-            <p className="mt-2 text-xs leading-relaxed text-on-surface-variant/80">
-              Enter the code below to
-              verify your email and finish
-              creating your account.
-            </p>
-
-            <p className="mt-2 text-xs leading-relaxed text-on-surface-variant/80">
-              Didn&apos;t receive the
-              code? Check that you entered
-              the correct email or check
-              your spam/junk folder.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label
-              htmlFor="otp"
-              className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant"
-            >
-              Enter the OTP sent to your
-              email
-            </Label>
-
-            <Input
-              id="otp"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
-              placeholder="000000"
-              value={otp}
-              onChange={(event) => {
-                const value =
-                  event.target.value
-                    .replace(/\D/g, "")
-                    .slice(0, 6);
-
-                setOtp(value);
-              }}
-              className="h-12 rounded-xl text-center text-xl font-semibold tracking-[0.5em]"
-            />
-          </div>
-
-          <Button
-            type="button"
-            disabled={
-              verifyingOtp ||
-              otp.length !== 6
-            }
-            onClick={handleVerifyOtp}
-            className="h-10 w-full rounded-xl"
-          >
-            {verifyingOtp
-              ? "Verifying…"
-              : "Verify Email"}
-
-            <ArrowRight className="size-4" />
-          </Button>
-
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={
-              resendingOtp ||
-              resendCooldown > 0
-            }
-            onClick={handleResendOtp}
-            className="h-9 w-full rounded-xl text-xs"
-          >
-            {resendingOtp
-              ? "Sending new code…"
-              : resendCooldown > 0
-                ? `Resend OTP in ${resendCooldown}s`
-                : "Didn't receive it? Resend OTP"}
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            className="h-10 w-full rounded-xl"
-            onClick={() => {
-              setOtpRequired(false);
-              setOtp("");
-              setOtpEmail("");
-              setResendCooldown(0);
-            }}
-          >
-            Back to Sign Up
-          </Button>
-        </div>
-      ) : (
-        <form
-          onSubmit={onSignUp}
-          className="flex flex-col gap-2.5"
-          noValidate
-        >
-          <div className="flex flex-col gap-1">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-              Display name
-            </Label>
-
-            <Input
-              placeholder="How others see you"
-              className={fieldClass}
-              {...signUpForm.register(
-                "displayName"
-              )}
-            />
-
-            {signUpForm.formState
-              .errors.displayName && (
-                <p
-                  className="text-xs text-destructive"
-                  role="alert"
-                >
-                  {
-                    signUpForm.formState
-                      .errors.displayName
-                      .message
-                  }
-                </p>
-              )}
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-              Email
-            </Label>
-
-            <Input
-              type="email"
-              placeholder="you@email.com"
-              className={fieldClass}
-              {...signUpForm.register(
-                "email"
-              )}
-            />
-
-            {signUpForm.formState
-              .errors.email && (
-                <p
-                  className="text-xs text-destructive"
-                  role="alert"
-                >
-                  {
-                    signUpForm.formState
-                      .errors.email.message
-                  }
-                </p>
-              )}
-          </div>
-
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-                Password
-              </Label>
-
-              <Input
-                type="password"
-                placeholder="Min 8 chars"
-                className={fieldClass}
-                {...signUpForm.register(
-                  "password"
-                )}
-              />
-
-              {signUpForm.formState
-                .errors.password && (
-                <p
-                  className="text-xs text-destructive"
-                  role="alert"
-                >
-                  {
-                    signUpForm.formState
-                      .errors.password.message
-                  }
-                </p>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-                Confirm
-              </Label>
-
-              <Input
-                type="password"
-                placeholder="Repeat"
-                className={fieldClass}
-                {...signUpForm.register(
-                  "confirmPassword"
-                )}
-              />
-
-              {signUpForm.formState
-                .errors.confirmPassword && (
-                <p
-                  className="text-xs text-destructive"
-                  role="alert"
-                >
-                  {
-                    signUpForm.formState
-                      .errors.confirmPassword
-                      .message
-                  }
-                </p>
-              )}
-            </div>
-          </div>
-
-          <label className="flex items-start gap-2.5 text-xs text-on-surface-variant sm:text-sm">
-            <Checkbox
-              checked={
-                !!acceptTermsValue
-              }
-              onCheckedChange={(value) =>
-                signUpForm.setValue(
-                  "acceptTerms",
-                  value === true,
-                  {
-                    shouldValidate: true,
-                  }
-                )
-              }
-            />
-
-            <span>
-              I agree to the{" "}
-              <Link
-                href="/safety"
-                className="text-magenta underline-offset-2 hover:underline"
-              >
-                Safety guidelines
-              </Link>{" "}
-              and terms of use.
-            </span>
-          </label>
-
-          {signUpForm.formState
-            .errors.acceptTerms && (
-            <p
-              className="text-xs text-destructive"
-              role="alert"
-            >
-              {
-                signUpForm.formState
-                  .errors.acceptTerms
-                  .message
-              }
-            </p>
           )}
 
-          <Button
-            type="submit"
-            disabled={loading}
-            className="h-10 w-full rounded-xl"
-          >
-            {loading
-              ? "Creating account…"
-              : "Create Account"}
+          {tab === "signin" &&
+            !otpRequired ? (
+            <form
+              onSubmit={onSignIn}
+              className="flex flex-col gap-3.5"
+              noValidate
+            >
+              <div className="flex flex-col gap-1">
+                <Label
+                  htmlFor="email"
+                  className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant"
+                >
+                  Email
+                </Label>
 
-            <ArrowRight className="size-4" />
-          </Button>
-        </form>
-      )}
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-outline" />
 
-      {!otpRequired && (
-        <>
-          <div className="my-3.5 flex items-center gap-3">
-            <div className="h-px flex-1 bg-outline-variant/50" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@email.com"
+                    className={cn(
+                      fieldClass,
+                      "pl-10"
+                    )}
+                    aria-invalid={
+                      !!signInForm.formState
+                        .errors.email
+                    }
+                    {...signInForm.register(
+                      "email"
+                    )}
+                  />
+                </div>
 
-            <span className="text-xs font-semibold uppercase tracking-wider text-outline">
-              or
-            </span>
+                {signInForm.formState
+                  .errors.email && (
+                    <p
+                      className="text-xs text-destructive"
+                      role="alert"
+                    >
+                      {
+                        signInForm.formState
+                          .errors.email.message
+                      }
+                    </p>
+                  )}
+              </div>
 
-            <div className="h-px flex-1 bg-outline-variant/50" />
-          </div>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="password"
+                    className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant"
+                  >
+                    Password
+                  </Label>
 
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleGuest}
-            className="h-10 w-full rounded-xl"
-          >
-            <Compass className="size-4 text-secondary" />
+                  <Link
+                    href="/auth/forgot-password"
+                    className="text-xs font-semibold text-magenta hover:text-magenta/80"
+                  >
+                    Forgot?
+                  </Link>
+                </div>
 
-            Continue as Guest
-          </Button>
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-outline" />
 
-          <p className="mt-2 text-center text-xs text-on-surface-variant/80">
-            Guests can chat — sign up
-            later to keep friends &
-            history.
-          </p>
-        </>
-      )}
-    </div>
-  );
-}
+                  <Input
+                    id="password"
+                    type={
+                      showPassword
+                        ? "text"
+                        : "password"
+                    }
+                    placeholder="Your password"
+                    className={cn(
+                      fieldClass,
+                      "px-10"
+                    )}
+                    aria-invalid={
+                      !!signInForm.formState
+                        .errors.password
+                    }
+                    {...signInForm.register(
+                      "password"
+                    )}
+                  />
 
-export function AuthBrandMark() {
-  return (
-    <div className="flex items-center gap-2.5 text-2xl tracking-tight">
-      <span className="glow-primary flex size-9 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-magenta to-secondary text-white">
-        <MessageCircle
-          className="size-[55%] fill-current"
-          aria-hidden
-        />
-      </span>
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface"
+                    onClick={() =>
+                      setShowPassword(
+                        (value) => !value
+                      )
+                    }
+                    aria-label={
+                      showPassword
+                        ? "Hide password"
+                        : "Show password"
+                    }
+                  >
+                    {showPassword ? (
+                      <Eye className="size-4" />
+                    ) : (
+                      <EyeOff className="size-4" />
+                    )}
+                  </button>
+                </div>
 
-      <span className="font-logo text-gradient font-normal">
-        LoungeChat
-      </span>
-    </div>
-  );
-}
+                {signInForm.formState
+                  .errors.password && (
+                    <p
+                      className="text-xs text-destructive"
+                      role="alert"
+                    >
+                      {
+                        signInForm.formState
+                          .errors.password.message
+                      }
+                    </p>
+                  )}
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="mt-0.5 h-10 w-full rounded-xl"
+              >
+                {loading
+                  ? "Signing in…"
+                  : "Sign In"}
+
+                <ArrowRight className="size-4" />
+              </Button>
+            </form>
+          ) : otpRequired ? (
+            <div className="flex flex-col gap-4">
+              <div className="rounded-2xl bg-secondary-container/30 p-5 text-center">
+                <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-secondary/15">
+                  <Mail className="size-5 text-secondary" />
+                </div>
+
+                <h2 className="font-heading text-lg font-bold text-on-surface">
+                  Verify your email
+                </h2>
+
+                <p className="mt-2 text-sm leading-relaxed text-on-surface-variant">
+                  We sent a 6-digit
+                  verification code to{" "}
+                  <span className="font-semibold text-on-surface">
+                    {otpEmail}
+                  </span>
+                  .
+                </p>
+
+                <p className="mt-2 text-xs leading-relaxed text-on-surface-variant/80">
+                  Enter the code below to
+                  verify your email and finish
+                  creating your account.
+                </p>
+
+                <p className="mt-2 text-xs leading-relaxed text-on-surface-variant/80">
+                  Didn&apos;t receive the
+                  code? Check that you entered
+                  the correct email or check
+                  your spam/junk folder.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label
+                  htmlFor="otp"
+                  className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant"
+                >
+                  Enter the OTP sent to your
+                  email
+                </Label>
+
+                <Input
+                  id="otp"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  placeholder="000000"
+                  value={otp}
+                  onChange={(event) => {
+                    const value =
+                      event.target.value
+                        .replace(/\D/g, "")
+                        .slice(0, 6);
+
+                    setOtp(value);
+                  }}
+                  className="h-12 rounded-xl text-center text-xl font-semibold tracking-[0.5em]"
+                />
+              </div>
+
+              <Button
+                type="button"
+                disabled={
+                  verifyingOtp ||
+                  otp.length !== 6
+                }
+                onClick={handleVerifyOtp}
+                className="h-10 w-full rounded-xl"
+              >
+                {verifyingOtp
+                  ? "Verifying…"
+                  : "Verify Email"}
+
+                <ArrowRight className="size-4" />
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={
+                  resendingOtp ||
+                  resendCooldown > 0
+                }
+                onClick={handleResendOtp}
+                className="h-9 w-full rounded-xl text-xs"
+              >
+                {resendingOtp
+                  ? "Sending new code…"
+                  : resendCooldown > 0
+                    ? `Resend OTP in ${resendCooldown}s`
+                    : "Didn't receive it? Resend OTP"}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 w-full rounded-xl"
+                onClick={() => {
+                  setOtpRequired(false);
+                  setOtp("");
+                  setOtpEmail("");
+                  setResendCooldown(0);
+                }}
+              >
+                Back to Sign Up
+              </Button>
+            </div>
+          ) : (
+            <form
+              onSubmit={onSignUp}
+              className="flex flex-col gap-2.5"
+              noValidate
+            >
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                  Display name
+                </Label>
+
+                <Input
+                  placeholder="How others see you"
+                  className={fieldClass}
+                  {...signUpForm.register(
+                    "displayName"
+                  )}
+                />
+
+                {signUpForm.formState
+                  .errors.displayName && (
+                    <p
+                      className="text-xs text-destructive"
+                      role="alert"
+                    >
+                      {
+                        signUpForm.formState
+                          .errors.displayName
+                          .message
+                      }
+                    </p>
+                  )}
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                  Email
+                </Label>
+
+                <Input
+                  type="email"
+                  placeholder="you@email.com"
+                  className={fieldClass}
+                  {...signUpForm.register(
+                    "email"
+                  )}
+                />
+
+                {signUpForm.formState
+                  .errors.email && (
+                    <p
+                      className="text-xs text-destructive"
+                      role="alert"
+                    >
+                      {
+                        signUpForm.formState
+                          .errors.email.message
+                      }
+                    </p>
+                  )}
+              </div>
+
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                    Password
+                  </Label>
+
+                  <Input
+                    type="password"
+                    placeholder="Min 8 chars"
+                    className={fieldClass}
+                    {...signUpForm.register(
+                      "password"
+                    )}
+                  />
+
+                  {signUpForm.formState
+                    .errors.password && (
+                      <p
+                        className="text-xs text-destructive"
+                        role="alert"
+                      >
+                        {
+                          signUpForm.formState
+                            .errors.password.message
+                        }
+                      </p>
+                    )}
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                    Confirm
+                  </Label>
+
+                  <Input
+                    type="password"
+                    placeholder="Repeat"
+                    className={fieldClass}
+                    {...signUpForm.register(
+                      "confirmPassword"
+                    )}
+                  />
+
+                  {signUpForm.formState
+                    .errors.confirmPassword && (
+                      <p
+                        className="text-xs text-destructive"
+                        role="alert"
+                      >
+                        {
+                          signUpForm.formState
+                            .errors.confirmPassword
+                            .message
+                        }
+                      </p>
+                    )}
+                </div>
+              </div>
+
+              <label className="flex items-start gap-2.5 text-xs text-on-surface-variant sm:text-sm">
+                <Checkbox
+                  checked={
+                    !!acceptTermsValue
+                  }
+                  onCheckedChange={(value) =>
+                    signUpForm.setValue(
+                      "acceptTerms",
+                      value === true,
+                      {
+                        shouldValidate: true,
+                      }
+                    )
+                  }
+                />
+
+                <span>
+                  I agree to the{" "}
+                  <Link
+                    href="/safety"
+                    className="text-magenta underline-offset-2 hover:underline"
+                  >
+                    Safety guidelines
+                  </Link>{" "}
+                  and terms of use.
+                </span>
+              </label>
+
+              {signUpForm.formState
+                .errors.acceptTerms && (
+                  <p
+                    className="text-xs text-destructive"
+                    role="alert"
+                  >
+                    {
+                      signUpForm.formState
+                        .errors.acceptTerms
+                        .message
+                    }
+                  </p>
+                )}
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="h-10 w-full rounded-xl"
+              >
+                {loading
+                  ? "Creating account…"
+                  : "Create Account"}
+
+                <ArrowRight className="size-4" />
+              </Button>
+            </form>
+          )}
+
+          {!otpRequired && (
+            <>
+              <div className="my-3.5 flex items-center gap-3">
+                <div className="h-px flex-1 bg-outline-variant/50" />
+
+                <span className="text-xs font-semibold uppercase tracking-wider text-outline">
+                  or
+                </span>
+
+                <div className="h-px flex-1 bg-outline-variant/50" />
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGuest}
+                className="h-10 w-full rounded-xl"
+              >
+                <Compass className="size-4 text-secondary" />
+
+                Continue as Guest
+              </Button>
+
+              <p className="mt-2 text-center text-xs text-on-surface-variant/80">
+                Guests can chat — sign up
+                later to keep friends &
+                history.
+              </p>
+            </>
+          )}
+        </div>
+      );
+    }
+
+  export function AuthBrandMark() {
+    return (
+      <div className="flex items-center gap-2.5 text-2xl tracking-tight">
+        <span className="glow-primary flex size-9 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-magenta to-secondary text-white">
+          <MessageCircle
+            className="size-[55%] fill-current"
+            aria-hidden
+          />
+        </span>
+
+        <span className="font-logo text-gradient font-normal">
+          LoungeChat
+        </span>
+      </div>
+    );
+  }
+  

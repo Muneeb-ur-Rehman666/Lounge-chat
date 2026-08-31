@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,7 +15,7 @@ import {
   type ForgotPasswordValues,
 } from "@/lib/validators";
 
-import { createClient } from "@/lib/supabase/client";
+import { authService } from "@/services/auth";
 
 export default function ForgotPasswordClient() {
   const [sent, setSent] = useState(false);
@@ -25,33 +25,74 @@ export default function ForgotPasswordClient() {
     defaultValues: { email: "" },
   });
 
-  const supabase = createClient();
+  const [cooldown, setCooldown] =
+    useState(0);
+  const RESET_REQUEST_COOLDOWN = 60;
 
-  const onSubmit = form.handleSubmit(async (values) => {
-    setLoading(true);
-
-    try {
-      const client = createClient();
-
-      const { error } = await client.auth.resetPasswordForEmail(
-        values.email,
-        {
-          redirectTo: `${window.location.origin}/auth/reset-password`,
-        }
-      );
-
-      if (error) {
-        throw error;
-      }
-
-      setSent(true);
-      toast.success("If an account exists, a reset link has been sent.");
-    } catch {
-      toast.error("Could not send reset link. Please try again.");
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (cooldown <= 0) {
+      return;
     }
-  });
+
+    const timer =
+      window.setInterval(() => {
+        setCooldown((current) => {
+          if (current <= 1) {
+            window.clearInterval(
+              timer
+            );
+
+            return 0;
+          }
+
+          return current - 1;
+        });
+      }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [cooldown]);
+
+
+
+  const onSubmit =
+    form.handleSubmit(
+      async (values) => {
+        if (cooldown > 0) {
+          return;
+        }
+
+        setLoading(true);
+
+        try {
+          await authService.requestPasswordReset(
+            values.email
+          );
+
+          setSent(true);
+
+          setCooldown(
+            RESET_REQUEST_COOLDOWN
+          );
+
+          toast.success(
+            "If an account exists, a reset link has been sent."
+          );
+        } catch (error) {
+          console.error(
+            "PASSWORD RESET REQUEST ERROR:",
+            error
+          );
+
+          toast.error(
+            "Could not send the reset link. Please try again."
+          );
+        } finally {
+          setLoading(false);
+        }
+      }
+    );
 
   return (
     <div className="mesh-bg relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6">
@@ -107,10 +148,14 @@ export default function ForgotPasswordClient() {
             </div>
             <Button
               type="submit"
-              disabled={loading}
+              disabled={loading || cooldown > 0}
               className="h-12 w-full rounded-2xl"
             >
-              {loading ? "Sending…" : "Send reset link"}
+              {loading
+                ? "Sending…"
+                : cooldown > 0
+                  ? `Try again in ${cooldown}s`
+                  : "Send reset link"}
             </Button>
           </form>
         )}

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { StoreHydration } from "@/components/store-hydration";
-
+import { SupabaseAuthSync } from "@/components/supabase-auth-sync";
 /**
  * App-level providers. Theme is forced dark on `<html className="dark">`
  * in the root layout — no next-themes provider (avoids React 19 script-injection warning).
@@ -25,11 +25,18 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <StoreHydration />
-      <TooltipProvider delay={200}>
-        {children}
-        <Toaster position="top-center" theme="dark" richColors closeButton />
-      </TooltipProvider>
-    </QueryClientProvider>
+  <StoreHydration />
+  <SupabaseAuthSync />
+
+  <TooltipProvider>
+    {children}
+    <Toaster
+      position="top-center"
+      theme="dark"
+      richColors
+      closeButton
+    />
+  </TooltipProvider>
+</QueryClientProvider>
   );
 }

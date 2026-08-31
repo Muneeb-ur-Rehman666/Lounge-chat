@@ -5,6 +5,8 @@ import { MOCK_FRIENDS, MOCK_NOTIFICATIONS, MOCK_REQUESTS } from "@/constants/moc
 import { createLazyLocalStorage } from "@/lib/lazy-local-storage";
 import { uid } from "@/lib/utils";
 
+
+
 interface FriendsState {
   friends: Friend[];
   requests: FriendRequest[];
@@ -19,11 +21,22 @@ interface FriendsState {
   sendFriendRequest: (username: string) => Promise<void>;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
+  clearFriendsData: () => void;
 }
 
 export const useFriendsStore = create<FriendsState>()(
   persist(
     (set, get) => ({
+      clearFriendsData: () => {
+        set({
+          friends: [],
+          requests: [],
+          notifications: [],
+          selectedFriendId: null,
+          searchQuery: "",
+        });
+      },
+      
       friends: MOCK_FRIENDS,
       requests: MOCK_REQUESTS,
       notifications: MOCK_NOTIFICATIONS,
@@ -97,11 +110,12 @@ export const useFriendsStore = create<FriendsState>()(
     {
       name: "loungechat-friends",
       storage: createLazyLocalStorage(),
-      partialize: (s) => ({
-        friends: s.friends,
-        requests: s.requests,
-        notifications: s.notifications,
-      }),
+      
+          partialize: (state) => ({
+            friends: state.friends,
+            requests: state.requests,
+            notifications: state.notifications,
+          }),
       skipHydration: true,
     }
   )

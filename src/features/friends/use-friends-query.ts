@@ -27,10 +27,21 @@ export function useFriendsQuery() {
     staleTime: 15_000,
   });
 
+  const guest = isGuest();
+
   return {
     ...query,
-    friends: query.data?.friends ?? friends,
-    requests: query.data?.requests ?? requests,
-    isGuest: isGuest(),
+
+    friends: guest
+      ? []
+      : query.data?.friends ??
+      friends,
+
+    requests: guest
+      ? []
+      : query.data?.requests ??
+      requests,
+
+    isGuest: guest,
   };
 }

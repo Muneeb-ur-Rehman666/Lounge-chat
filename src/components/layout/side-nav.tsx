@@ -21,19 +21,9 @@ export function SideNav() {
   const isPremium = useAuthStore((s) => s.isPremium);
   const user = session?.user;
 
-  const handleNav = (href: string, guestGated?: boolean) => {
-    if (guestGated && isGuest()) {
-      toast.info("Create a free account to unlock Friends & more.", {
-        action: {
-          label: "Sign Up",
-          onClick: () => router.push("/auth?tab=signup"),
-        },
-      });
-      router.push("/auth?tab=signup");
-      return;
-    }
+  const handleNav = (href: string) => {
     router.push(href);
-  };
+  };;
 
   return (
     <aside className="fixed left-0 top-0 z-50 hidden h-full w-72 flex-col justify-between border-r border-outline-variant/40 bg-sidebar/90 py-6 backdrop-blur-xl lg:flex">
@@ -92,15 +82,15 @@ export function SideNav() {
               <button
                 key={item.href}
                 type="button"
-                onClick={() => handleNav(item.href, item.guestGated)}
+                onClick={() => handleNav(item.href)}
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all active:scale-[0.98]",
                   active
                     ? "nav-active-pill text-on-surface"
                     : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface",
                   item.premiumAccent &&
-                    !active &&
-                    "text-premium-gold hover:text-premium-gold"
+                  !active &&
+                  "text-premium-gold hover:text-premium-gold"
                 )}
               >
                 <Icon
@@ -119,7 +109,7 @@ export function SideNav() {
       </div>
 
       <div className="flex flex-col gap-3 px-3">
-        {!isPremium() && (
+        {!isPremium() && !isGuest() && (
           <Button
             render={<Link href="/premium" />}
             className="mx-3 rounded-full premium-btn-gradient font-bold text-background shadow-[0_4px_24px_rgba(255,78,205,0.35)] hover:opacity-90 hover:shadow-[0_6px_32px_rgba(255,78,205,0.45)]"
@@ -130,9 +120,23 @@ export function SideNav() {
         )}
         <button
           type="button"
-          onClick={() => {
-            signOut();
-            router.push("/");
+          onClick={async () => {
+            try {
+              await signOut();
+              toast.success("You have been logged out.");
+              router.replace("/");
+            } catch (error) {
+              console.error(
+                "LOGOUT ERROR:",
+                error
+              );
+
+              toast.error(
+                error instanceof Error
+                  ? error.message
+                  : "Could not log out. Please try again."
+              );
+            }
           }}
           className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
         >
