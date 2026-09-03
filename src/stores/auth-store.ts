@@ -411,6 +411,10 @@ export const useAuthStore =
               },
             },
           });
+
+          void authService.updateProfile(session.user.id, {
+            role: "premium",
+          });
         },
 
         updateProfile: (patch) => {
@@ -438,6 +442,8 @@ export const useAuthStore =
               },
             },
           });
+
+          void authService.updateProfile(session.user.id, patch);
         },
 
         updateSupabaseTokens: (

@@ -132,7 +132,7 @@ export function SupabaseAuthSync() {
 
           useFriendsStore
             .getState()
-            .clearFriendsData();
+            .resetToMockData();
 
           authState.setSigningOut(false);
 

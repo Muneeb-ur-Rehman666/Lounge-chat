@@ -1,19 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Send, BadgeCheck } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { StatusDot } from "@/components/shared/status-dot";
 import type { Friend } from "@/types";
-import { cn, formatTime, uid } from "@/lib/utils";
-
-interface LocalMsg {
-  id: string;
-  mine: boolean;
-  content: string;
-  at: string;
-}
+import { cn, formatTime } from "@/lib/utils";
+import { useFriendsStore } from "@/stores/friends-store";
 
 export function FriendChatPanel({
   friend,
@@ -22,14 +16,21 @@ export function FriendChatPanel({
   friend: Friend;
   onBack: () => void;
 }) {
-  const [messages, setMessages] = useState<LocalMsg[]>([
-    {
-      id: `seed_${friend.id}`,
-      mine: false,
-      content: friend.lastMessage || "Hey! Good to see you again.",
-      at: friend.lastActiveAt,
-    },
-  ]);
+  const storedMessages = useFriendsStore((s) => s.directMessages[friend.id]);
+  const sendDirectMessage = useFriendsStore((s) => s.sendDirectMessage);
+
+  const messages = useMemo(() => {
+    if (storedMessages && storedMessages.length > 0) return storedMessages;
+    return [
+      {
+        id: `seed_${friend.id}`,
+        mine: false,
+        content: friend.lastMessage || "Hey! Good to see you again.",
+        at: friend.lastActiveAt,
+      },
+    ];
+  }, [storedMessages, friend.id, friend.lastMessage, friend.lastActiveAt]);
+
   const [value, setValue] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -39,15 +40,7 @@ export function FriendChatPanel({
 
   const send = () => {
     if (!value.trim()) return;
-    setMessages((m) => [
-      ...m,
-      {
-        id: uid("fm"),
-        mine: true,
-        content: value.trim(),
-        at: new Date().toISOString(),
-      },
-    ]);
+    sendDirectMessage(friend.id, value.trim());
     setValue("");
   };
 

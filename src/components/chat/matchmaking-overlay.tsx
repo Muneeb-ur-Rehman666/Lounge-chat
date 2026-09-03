@@ -143,6 +143,16 @@ export function MatchmakingOverlay({
                     ? "Matching you with someone new in the lounge."
                     : `Looking for ${matchPreferences.gender} chat partners…`}
             </p>
+            {searching && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => useChatStore.getState().endChat()}
+                className="mt-6 rounded-full border-outline-variant/40 px-5 text-xs text-on-surface-variant hover:border-destructive/40 hover:bg-destructive/15 hover:text-destructive"
+              >
+                Cancel search
+              </Button>
+            )}
           </div>
         )}
 

@@ -2,14 +2,11 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { MOBILE_NAV } from "@/constants/nav";
-import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 export function MobileNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const isGuest = useAuthStore((s) => s.isGuest);
 
   return (
     <nav
@@ -23,14 +20,7 @@ export function MobileNav() {
           <button
             key={item.href}
             type="button"
-            onClick={() => {
-              if (item.guestGated && isGuest()) {
-                toast.info("Create an account to use Friends.");
-                router.push("/auth?tab=signup");
-                return;
-              }
-              router.push(item.href);
-            }}
+            onClick={() => router.push(item.href)}
             className={cn(
               "relative flex w-16 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-all",
               active

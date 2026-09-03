@@ -82,6 +82,18 @@ export interface AuthService {
   updatePassword(
     password: string
   ): Promise<void>;
+
+  updateProfile(
+    userId: string,
+    patch: Partial<{
+      displayName: string;
+      bio: string;
+      gender: "male" | "female" | "other" | "prefer_not_to_say" | null;
+      interests: string[];
+      status: "online" | "away" | "offline";
+      role: "registered" | "premium";
+    }>
+  ): Promise<void>;
 }
 
 type SupabaseUser =
@@ -631,6 +643,42 @@ export class SupabaseAuthService
       throw toAuthServiceError(
         error
       );
+    }
+  }
+
+  async updateProfile(
+    userId: string,
+    patch: Partial<{
+      displayName: string;
+      bio: string;
+      gender: "male" | "female" | "other" | "prefer_not_to_say" | null;
+      interests: string[];
+      status: "online" | "away" | "offline";
+      role: "registered" | "premium";
+    }>
+  ): Promise<void> {
+    const supabase = createClient();
+    const updateData: Record<string, unknown> = {};
+    if (patch.displayName !== undefined) updateData.display_name = patch.displayName;
+    if (patch.bio !== undefined) updateData.bio = patch.bio;
+    if (patch.gender !== undefined) updateData.gender = patch.gender;
+    if (patch.interests !== undefined) updateData.interests = patch.interests;
+    if (patch.status !== undefined) updateData.status = patch.status;
+    if (patch.role !== undefined) updateData.role = patch.role;
+
+    if (Object.keys(updateData).length === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update(updateData)
+        .eq("id", userId);
+
+      if (error) {
+        console.warn("Supabase profile update:", error.message);
+      }
+    } catch (e) {
+      console.warn("Could not sync profile to Supabase:", e);
     }
   }
 }

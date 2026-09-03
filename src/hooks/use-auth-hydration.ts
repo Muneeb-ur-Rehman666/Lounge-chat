@@ -1,47 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { useAuthStore } from "@/stores/auth-store";
 
 /**
  * Tracks whether the auth persist layer has finished client rehydration.
- * Official Zustand pattern for Next.js App Router + persist.
- *
- * @see https://github.com/pmndrs/zustand/blob/main/docs/reference/integrations/persisting-store-data.md
+ * Uses useSyncExternalStore for React 19 / Next.js App Router compatibility.
  */
 export function useAuthHydration(): boolean {
-  const [hydrated, setHydrated] = useState(() => {
-    const api = useAuthStore.persist;
-    return api?.hasHydrated() ?? false;
-  });
-
-  useEffect(() => {
-    const api = useAuthStore.persist;
-    if (!api) {
-      // Persist API missing — treat as hydrated so the app isn't blocked.
-      setHydrated(true);
-      return;
-    }
-
-    const unsubHydrate = api.onHydrate(() => {
-      setHydrated(false);
-    });
-
-    const unsubFinish = api.onFinishHydration(() => {
-      setHydrated(true);
-    });
-
-    if (api.hasHydrated()) {
-      setHydrated(true);
-    } else {
-      void api.rehydrate();
-    }
-
-    return () => {
-      unsubHydrate();
-      unsubFinish();
-    };
-  }, []);
-
-  return hydrated;
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      const api = useAuthStore.persist;
+      if (!api) return () => {};
+      const unsubHydrate = api.onHydrate(onStoreChange);
+      const unsubFinish = api.onFinishHydration(onStoreChange);
+      if (!api.hasHydrated()) {
+        void api.rehydrate();
+      }
+      return () => {
+        unsubHydrate();
+        unsubFinish();
+      };
+    },
+    () => {
+      const api = useAuthStore.persist;
+      return api?.hasHydrated() ?? true;
+    },
+    () => false
+  );
 }

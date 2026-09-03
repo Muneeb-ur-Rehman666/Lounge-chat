@@ -23,7 +23,7 @@ export function SideNav() {
 
   const handleNav = (href: string) => {
     router.push(href);
-  };;
+  };
 
   return (
     <aside className="fixed left-0 top-0 z-50 hidden h-full w-72 flex-col justify-between border-r border-outline-variant/40 bg-sidebar/90 py-6 backdrop-blur-xl lg:flex">

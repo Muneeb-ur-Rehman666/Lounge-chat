@@ -7,10 +7,18 @@ import { uid } from "@/lib/utils";
 
 
 
+export interface DirectMessage {
+  id: string;
+  mine: boolean;
+  content: string;
+  at: string;
+}
+
 interface FriendsState {
   friends: Friend[];
   requests: FriendRequest[];
   notifications: NotificationItem[];
+  directMessages: Record<string, DirectMessage[]>;
   selectedFriendId: string | null;
   selectFriend: (id: string | null) => void;
   searchQuery: string;
@@ -19,9 +27,11 @@ interface FriendsState {
   rejectRequest: (id: string) => void;
   removeFriend: (id: string) => void;
   sendFriendRequest: (username: string) => Promise<void>;
+  sendDirectMessage: (friendId: string, content: string) => void;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
   clearFriendsData: () => void;
+  resetToMockData: () => void;
 }
 
 export const useFriendsStore = create<FriendsState>()(
@@ -36,10 +46,20 @@ export const useFriendsStore = create<FriendsState>()(
           searchQuery: "",
         });
       },
+      resetToMockData: () => {
+        set({
+          friends: MOCK_FRIENDS,
+          requests: MOCK_REQUESTS,
+          notifications: MOCK_NOTIFICATIONS,
+          selectedFriendId: null,
+          searchQuery: "",
+        });
+      },
       
       friends: MOCK_FRIENDS,
       requests: MOCK_REQUESTS,
       notifications: MOCK_NOTIFICATIONS,
+      directMessages: {},
       selectedFriendId: null,
       searchQuery: "",
       selectFriend: (id) => set({ selectedFriendId: id }),
@@ -94,6 +114,33 @@ export const useFriendsStore = create<FriendsState>()(
           ],
         });
       },
+      sendDirectMessage: (friendId, content) => {
+        const text = content.trim();
+        if (!text) return;
+        const msg: DirectMessage = {
+          id: uid("fm"),
+          mine: true,
+          content: text,
+          at: new Date().toISOString(),
+        };
+        const current = get().directMessages[friendId] ?? [];
+        set({
+          directMessages: {
+            ...get().directMessages,
+            [friendId]: [...current, msg],
+          },
+          friends: get().friends.map((f) =>
+            f.id === friendId
+              ? {
+                  ...f,
+                  lastMessage: text,
+                  lastActiveAt: new Date().toISOString(),
+                  preview: text,
+                }
+              : f
+          ),
+        });
+      },
       markNotificationRead: (id) => {
         set({
           notifications: get().notifications.map((n) =>
@@ -111,11 +158,12 @@ export const useFriendsStore = create<FriendsState>()(
       name: "loungechat-friends",
       storage: createLazyLocalStorage(),
       
-          partialize: (state) => ({
-            friends: state.friends,
-            requests: state.requests,
-            notifications: state.notifications,
-          }),
+      partialize: (state) => ({
+        friends: state.friends,
+        requests: state.requests,
+        notifications: state.notifications,
+        directMessages: state.directMessages,
+      }),
       skipHydration: true,
     }
   )

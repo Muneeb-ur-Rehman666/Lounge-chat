@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Ban, BadgeCheck, Flag, User } from "lucide-react";
+import { Ban, BadgeCheck, Flag, User, UserPlus, LogOut, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -21,6 +21,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { StatusDot } from "@/components/shared/status-dot";
 import type { StrangerPartner } from "@/types";
 import { toast } from "sonner";
+import { useAuthStore } from "@/stores/auth-store";
+import { useFriendsStore } from "@/stores/friends-store";
 
 const REPORT_REASONS = [
   { id: "harassment", label: "Harassment" },
@@ -34,16 +36,38 @@ export function ChatHeader({
   partner,
   onReport,
   onBlock,
+  onEndChat,
 }: {
   partner: StrangerPartner;
   onReport: (reason: string, details?: string) => Promise<void>;
   onBlock: () => Promise<void>;
+  onEndChat?: () => void;
 }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
+  const [endChatOpen, setEndChatOpen] = useState(false);
+  const [friendRequested, setFriendRequested] = useState(false);
   const [reason, setReason] = useState<string>("harassment");
   const [details, setDetails] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const isGuest = useAuthStore((s) => s.isGuest);
+  const sendFriendRequest = useFriendsStore((s) => s.sendFriendRequest);
+
+  const handleAddFriend = async () => {
+    if (isGuest()) {
+      toast.info("Create a free account to add friends.", {
+        action: {
+          label: "Sign Up",
+          onClick: () => (window.location.href = "/auth?tab=signup"),
+        },
+      });
+      return;
+    }
+    setFriendRequested(true);
+    await sendFriendRequest(partner.displayName);
+    toast.success(`Friend request sent to ${partner.displayName}`);
+  };
 
   return (
     <>
@@ -83,6 +107,30 @@ export function ChatHeader({
                 <Button
                   size="icon"
                   variant="ghost"
+                  disabled={friendRequested}
+                  className="size-9 rounded-full text-on-surface-variant hover:bg-primary/15 hover:text-primary md:size-10"
+                  onClick={handleAddFriend}
+                  aria-label={friendRequested ? "Request Sent" : "Add Friend"}
+                >
+                  {friendRequested ? (
+                    <Check className="size-4 text-secondary" />
+                  ) : (
+                    <UserPlus className="size-4" />
+                  )}
+                </Button>
+              }
+            />
+            <TooltipContent>
+              {friendRequested ? "Request sent" : "Add friend"}
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  size="icon"
+                  variant="ghost"
                   className="size-9 rounded-full hover:bg-destructive/15 hover:text-destructive md:size-10"
                   onClick={() => setReportOpen(true)}
                   aria-label="Report"
@@ -93,6 +141,7 @@ export function ChatHeader({
             />
             <TooltipContent>Report stranger</TooltipContent>
           </Tooltip>
+
           <Tooltip>
             <TooltipTrigger
               render={
@@ -109,8 +158,53 @@ export function ChatHeader({
             />
             <TooltipContent>Block stranger</TooltipContent>
           </Tooltip>
+
+          {onEndChat && (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5 rounded-full border-outline-variant/40 px-3 text-xs font-semibold text-on-surface-variant hover:border-destructive/40 hover:bg-destructive/15 hover:text-destructive md:h-9 md:px-3.5"
+                    onClick={() => setEndChatOpen(true)}
+                    aria-label="End Chat"
+                  >
+                    <LogOut className="size-3.5" />
+                    <span className="hidden sm:inline">End Chat</span>
+                  </Button>
+                }
+              />
+              <TooltipContent>Leave chat &amp; return to lounge</TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </header>
+
+      <Dialog open={endChatOpen} onOpenChange={setEndChatOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>End this conversation?</DialogTitle>
+            <DialogDescription>
+              You will leave this chat session and return to the lounge lobby.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEndChatOpen(false)}>
+              Keep Chatting
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setEndChatOpen(false);
+                onEndChat?.();
+              }}
+            >
+              End Conversation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={reportOpen} onOpenChange={setReportOpen}>
         <DialogContent>

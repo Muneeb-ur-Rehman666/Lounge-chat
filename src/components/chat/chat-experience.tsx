@@ -15,6 +15,7 @@ export function ChatExperience() {
     error,
     startMatchmaking,
     skip,
+    endChat,
     sendMessage,
     reportPartner,
     blockPartner,
@@ -60,6 +61,7 @@ export function ChatExperience() {
         onBlock={async () => {
           await blockPartner();
         }}
+        onEndChat={endChat}
       />
       <MessageList
         messages={session.messages}

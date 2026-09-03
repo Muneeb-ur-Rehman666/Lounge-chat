@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -17,6 +18,9 @@ export function SettingsExperience() {
   const isGuest = useAuthStore((s) => s.isGuest);
   const router = useRouter();
 
+  const [friendReqNotifications, setFriendReqNotifications] = useState(true);
+  const [messagePreviews, setMessagePreviews] = useState(true);
+
   return (
     <div className="h-full overflow-y-auto p-6 md:p-10">
       <div className="mx-auto max-w-xl">
@@ -24,7 +28,7 @@ export function SettingsExperience() {
           Settings
         </h1>
         <p className="mb-8 text-on-surface-variant">
-          Tune your lounge — presence, pings, and safety.
+          Preferences, privacy, and account settings.
         </p>
 
         <section className="glass-panel mb-5 rounded-3xl p-5">
@@ -49,15 +53,11 @@ export function SettingsExperience() {
                 }
 
                 updateProfile({
-                  status: checked
-                    ? "online"
-                    : "away",
+                  status: checked ? "online" : "away",
                 });
 
                 toast.message(
-                  checked
-                    ? "Status: Online"
-                    : "Status: Away"
+                  checked ? "Status: Online" : "Status: Away"
                 );
               }}
             />
@@ -71,12 +71,46 @@ export function SettingsExperience() {
           </h2>
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between gap-4">
-              <Label htmlFor="friend-req">Friend requests</Label>
-              <Switch id="friend-req" defaultChecked disabled={isGuest()} />
+              <div>
+                <Label htmlFor="friend-req">Friend requests</Label>
+                <p className="text-xs text-on-surface-variant">
+                  Notify when someone wants to connect
+                </p>
+              </div>
+              <Switch
+                id="friend-req"
+                checked={friendReqNotifications}
+                disabled={isGuest()}
+                onCheckedChange={(checked) => {
+                  setFriendReqNotifications(checked);
+                  toast.success(
+                    checked
+                      ? "Friend request alerts on"
+                      : "Friend request alerts off"
+                  );
+                }}
+              />
             </div>
             <div className="flex items-center justify-between gap-4">
-              <Label htmlFor="messages">Message previews</Label>
-              <Switch id="messages" defaultChecked disabled={isGuest()} />
+              <div>
+                <Label htmlFor="messages">Message previews</Label>
+                <p className="text-xs text-on-surface-variant">
+                  Show message snippets in alerts
+                </p>
+              </div>
+              <Switch
+                id="messages"
+                checked={messagePreviews}
+                disabled={isGuest()}
+                onCheckedChange={(checked) => {
+                  setMessagePreviews(checked);
+                  toast.success(
+                    checked
+                      ? "Message previews on"
+                      : "Message previews off"
+                  );
+                }}
+              />
             </div>
           </div>
           {isGuest() && (
@@ -114,13 +148,14 @@ export function SettingsExperience() {
           onClick={async () => {
             try {
               await signOut();
-              toast.success("You have been logged out.");
+              toast.success(
+                isGuest()
+                  ? "Exited guest session."
+                  : "You have been logged out."
+              );
               router.replace("/");
             } catch (error) {
-              console.error(
-                "LOGOUT ERROR:",
-                error
-              );
+              console.error("LOGOUT ERROR:", error);
 
               toast.error(
                 error instanceof Error
@@ -131,7 +166,7 @@ export function SettingsExperience() {
           }}
         >
           <LogOut className="size-4" />
-          Log out
+          {isGuest() ? "Exit guest mode" : "Log out"}
         </Button>
       </div>
     </div>
