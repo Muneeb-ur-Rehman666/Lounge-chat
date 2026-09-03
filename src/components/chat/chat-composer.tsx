@@ -124,7 +124,7 @@ export function ChatComposer({
   return (
     <div
       className={cn(
-        "absolute bottom-0 left-0 z-20 w-full bg-gradient-to-t from-background via-background/95 to-transparent p-4 md:p-6",
+        "relative z-20 w-full shrink-0 border-t border-outline-variant/20 bg-background/90 p-3 backdrop-blur-xl md:p-4",
         dragging && "ring-2 ring-inset ring-magenta"
       )}
       onDragOver={(e) => {

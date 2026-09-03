@@ -17,12 +17,12 @@ export function MessageList({
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, isPartnerTyping]);
 
   return (
     <div
-      className="flex flex-1 flex-col gap-6 overflow-y-auto bg-gradient-to-b from-background via-surface-dim to-background p-4 pb-36 md:p-6"
+      className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto bg-gradient-to-b from-background via-surface-dim to-background p-4 pb-4 md:p-6 md:pb-6 custom-scrollbar"
       role="log"
       aria-live="polite"
       aria-relevant="additions"
@@ -116,7 +116,7 @@ export function MessageList({
             </div>
           </div>
         )}
-        <div ref={bottomRef} />
+        <div ref={bottomRef} className="h-1 shrink-0" aria-hidden="true" />
       </div>
     </div>
   );

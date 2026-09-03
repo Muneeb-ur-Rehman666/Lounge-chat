@@ -35,7 +35,7 @@ export function FriendChatPanel({
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
 
   const send = () => {
@@ -76,7 +76,7 @@ export function FriendChatPanel({
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
+      <div className="flex flex-1 min-h-0 flex-col gap-3 overflow-y-auto p-4 custom-scrollbar">
         {messages.map((m) => (
           <div
             key={m.id}
@@ -103,7 +103,7 @@ export function FriendChatPanel({
             )}
           </div>
         ))}
-        <div ref={bottomRef} />
+        <div ref={bottomRef} className="h-1 shrink-0" aria-hidden="true" />
       </div>
 
       <div className="border-t border-outline-variant/20 p-4">
